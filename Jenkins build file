@@ -1,1 +1,92 @@
 
+1-- install java [jenkins runs on Java and Tomcat Apache]
+->cd /opt/
+->wget --no-cookies --no-check-certificate --header "Cookie: gpw_e24=http%3A%2F%2Fwww.oracle.com%2F; oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/8u161- b12/2f38c3b165be4555a1fa6e98c45e0808/jdk-8u161-linux-x64.tar.gz"
+->tar xzf jdk-8u161-linux-x64.tar.gz
+->cd /opt/jdk1.8.0_161/
+->alternatives --install /usr/bin/java java /opt/jdk1.8.0_161/bin/java 2
+->alternatives --config java [ select jdk1.8.0_161/ version of java if you have other versions or select default]
+->alternatives --install /usr/bin/jar jar /opt/jdk1.8.0_161/bin/jar 2 ->alternatives --install /usr/bin/javac javac /opt/jdk1.8.0_161/bin/javac 2 ->alternatives --set jar /opt/jdk1.8.0_161/bin/jar
+->alternatives --set javac /opt/jdk1.8.0_161/bin/javac
+
+
+2--Install Jenkins
+->wget -O /etc/yum.repos.d/jenkins.repo http://pkg.jenkins-ci.org/redhat/jenkins.repo ->rpm --import https://jenkins-ci.org/redhat/jenkins-ci.org.key
+->yum update
+->yum install jenkins
+->systemctl enable jenkins.service [starts jenkins every time after system reboots]
+->systemctl restart jenkins [Open browser and enter IPAdress:8080 to see if Jenkins is working] Administrator password is stored in /var/lib/jenkins/secrets/initialAdminPassword
+->Create Jenkins user if you want or skip and proceed as admin [change pwd after logging in]
+->To access Jenkins go to /etc/passwd [vi /etc/passwd] and at last find jenkins user and set the path as /bin:/bash instead of /bin:/false
+ In the server Jenkins user will be created but cannot be able to log in because Default login is
+ set to false by default in /etc/passwd
+ ->To give Jenkins root privileges, vi /etc/sudoers [ under root, include Jenkins ALL=(ALL) NOPASSWD: ALL ]
+->change the password for jenkins [passwd Jenkins], Log in as Jenkins user [su jenkins] After logging to Jenkins,
+->ssh-keygen [By default key is stored in key stored in /var/lib/jenkins] ->in jenkins dashboard credentials-> global credentials add the credentials
+[fill the details and select (from the jenkins master ~/ssh) at private key]
+
+
+
+3-- Download Maven and Unzip
+->cd /opt
+->wget https://repo.maven.apache.org/maven2/org/apache/maven/apache- maven/3.3.9/apache-maven-3.3.9-bin.tar.gz
+->tar -zxf apache-maven-3.3.9-bin.tar.gz
+
+
+
+4-- Set path and Env Variables
+->export JAVA_HOME=/opt/jdk1.8.0_161 ->export M2_HOME=/opt/apache-maven-3.3.9 ->export M2=$M2_HOME/bin
+->export PATH=$JAVA_HOME/bin:$M2:$PATH
+
+
+
+5-- Add section 3 in /.bashrc file
+->vi /root/.bashrc
+->export JAVA_HOME=/opt/jdk1.8.0_161
+ 
+->export M2_HOME=/opt/apache-maven-3.3.9 ->export M2=$M2_HOME/bin
+->export PATH=$JAVA_HOME/bin:$M2:$PATH
+
+
+
+
+6--Install git on the server
+->yum install git
+
+
+
+7--Manage Jenkins
+Manage Jenkins->configure system->
+->Global Properties-> select env variables and click add
+-> name as path and value as [open server, cd /opt, use command echo $PATH, copy the path] paste the path
+->at maven path, give the path as /opt/apache-maven-3.3.9
+Manage Jenkins->Global Tool Configuration->
+->at JDK, click on JDK installations and give name and path as /opt/jdk1.8.0_161
+->Click on maven installations and give the name and MAVEN_HOME as /opt/apache-maven- 3.3.9
+
+
+
+8-- To create a maven build, Increase EC2 instance if it is t2.micro
+->stop the instance and change the instance type to t2.large and start connect using putty and Increase the swap space for the server
+
+->/bin/dd if=/dev/zero of=/var/swap.1 bs=1M count=1024 ->/sbin/mkswap /var/swap.1
+->chmod 600 /var/swap.1
+->/sbin/swapon /var/swap.1
+
+
+
+9-- Jenkins new JOB
+->Create a new free style job
+at configure
+-> select source code management as git and enter repository URL [https://github.com/g0t4/jenkins2-course-spring-boot.git], credentials none.
+->at Build Environment, select ant and select given java path at [manage jenkins->Global Tool Configuration]
+->at Build, select add build step and select Invoke top-level Maven targets
+->Give maven version as our server path [given at Manage Jenkins->Global Tool Configuration] -> At Goals --> enter clean package
+-> Click advanced-> at POM give spring-boot-samples/spring-boot-sample-atmosphere/ ->apply and save
+->Go to the job and click build now [ it should execute without error with in <5 min]
+ 
+
+
+10. Doing the same build on the server
+On the server, cd /var/lib/jenkins/workspace/your-job-name/spring-boot-samples/spring- boot-sample-atmosphere/
+--> use commands mvn clean and mvn package to build within the server
